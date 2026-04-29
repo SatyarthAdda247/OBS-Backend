@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "functions": {
+    "api/session.js": { "maxDuration": 10 },
+    "api/pair.js":    { "maxDuration": 10 },
+    "api/health.js":  { "maxDuration": 5 }
+  }
+}

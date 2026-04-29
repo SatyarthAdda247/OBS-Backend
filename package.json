@@ -1,0 +1,13 @@
+{
+  "name": "obs-relay",
+  "version": "1.0.0",
+  "description": "OBS QR pairing relay — bridges OBS Studio and the mobile app over any network",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@vercel/kv": "^1.0.0"
+  }
+}
