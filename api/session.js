@@ -10,45 +10,103 @@
  */
 
 import { kv } from '@vercel/kv';
+import { sessionGet as memGet, sessionSet as memSet, sessionDelete as memDelete } from './_store.js';
 
 const SESSION_TTL_SECONDS = 300; // 5 minutes
+const BUCKET = 'obs_pairing_adda247_v1';
 
-// In-memory fallback for local dev without KV configured
-const memStore = new Map();
-
-async function getStore() {
-  // If Vercel KV env vars are present, use KV; otherwise use in-memory
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    return 'kv';
+async function kvdbGet(token) {
+  try {
+    const res = await fetch(`https://kvdb.io/${BUCKET}/${token}`);
+    if (res.status === 200) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error("KVdb.io get error:", e.message || e);
   }
-  return 'mem';
+  return null;
+}
+
+async function kvdbSet(token, data) {
+  try {
+    await fetch(`https://kvdb.io/${BUCKET}/${token}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return true;
+  } catch (e) {
+    console.error("KVdb.io set error:", e.message || e);
+  }
+  return false;
+}
+
+async function kvdbDelete(token) {
+  try {
+    await fetch(`https://kvdb.io/${BUCKET}/${token}`, {
+      method: 'DELETE'
+    });
+    return true;
+  } catch (e) {
+    console.error("KVdb.io delete error:", e.message || e);
+  }
+  return false;
 }
 
 async function sessionGet(token) {
-  const store = await getStore();
-  if (store === 'kv') {
-    return await kv.get(`obs:session:${token}`);
+  // 1. Try Vercel KV
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      const data = await kv.get(`obs:session:${token}`);
+      if (data) return data;
+    } catch (e) {
+      console.warn("Vercel KV get error:", e.message || e);
+    }
   }
-  return memStore.get(token) ?? null;
+
+  // 2. Try KVdb.io
+  const kvdbData = await kvdbGet(token);
+  if (kvdbData) return kvdbData;
+
+  // 3. Try In-memory fallback
+  return memGet(token);
 }
 
 async function sessionSet(token, data) {
-  const store = await getStore();
-  if (store === 'kv') {
-    await kv.set(`obs:session:${token}`, data, { ex: SESSION_TTL_SECONDS });
-  } else {
-    memStore.set(token, data);
-    setTimeout(() => memStore.delete(token), SESSION_TTL_SECONDS * 1000);
+  // 1. Try Vercel KV
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      await kv.set(`obs:session:${token}`, data, { ex: SESSION_TTL_SECONDS });
+      return;
+    } catch (e) {
+      console.warn("Vercel KV set error:", e.message || e);
+    }
   }
+
+  // 2. Try KVdb.io
+  const kvdbOk = await kvdbSet(token, data);
+  if (kvdbOk) return;
+
+  // 3. Try In-memory fallback
+  memSet(token, data);
 }
 
 async function sessionDelete(token) {
-  const store = await getStore();
-  if (store === 'kv') {
-    await kv.del(`obs:session:${token}`);
-  } else {
-    memStore.delete(token);
+  // 1. Try Vercel KV
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+    try {
+      await kv.del(`obs:session:${token}`);
+      return;
+    } catch (e) {
+      console.warn("Vercel KV delete error:", e.message || e);
+    }
   }
+
+  // 2. Try KVdb.io
+  const kvdbOk = await kvdbDelete(token);
+  if (kvdbOk) return;
+
+  // 3. Try In-memory fallback
+  memDelete(token);
 }
 
 export default async function handler(req, res) {
