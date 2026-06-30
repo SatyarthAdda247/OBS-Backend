@@ -8,6 +8,7 @@
     "dev": "vercel dev"
   },
   "dependencies": {
-    "@vercel/kv": "^1.0.0"
+    "@vercel/kv": "^1.0.0",
+    "ioredis": "^5.11.1"
   }
 }

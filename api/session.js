@@ -9,10 +9,12 @@
  * Falls back to in-memory if KV env vars are not set (local dev only).
  */
 
-import { kv } from '@vercel/kv';
+import Redis from 'ioredis';
 import { sessionGet as memGet, sessionSet as memSet, sessionDelete as memDelete } from './_store.js';
 const SESSION_TTL_SECONDS = 300; // 5 minutes
 const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
+const REDIS_URL = process.env.REDIS_URL || 'redis://default:YplziO9FvjTQ0vjDz6qeuTO9uR1Cs8Aj@meridian-sharp-lush-20498.db.redis.io:18536';
+const redis = new Redis(REDIS_URL);
 
 async function kvdbGet(token) {
   try {
@@ -52,14 +54,12 @@ async function kvdbDelete(token) {
 }
 
 async function sessionGet(token) {
-  // 1. Try Vercel KV
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    try {
-      const data = await kv.get(`obs:session:${token}`);
-      if (data) return data;
-    } catch (e) {
-      console.warn("Vercel KV get error:", e.message || e);
-    }
+  // 1. Try Redis
+  try {
+    const dataStr = await redis.get(`obs:session:${token}`);
+    if (dataStr) return JSON.parse(dataStr);
+  } catch (e) {
+    console.warn("Redis get error:", e.message || e);
   }
 
   // 2. Try KVdb.io
@@ -71,14 +71,12 @@ async function sessionGet(token) {
 }
 
 async function sessionSet(token, data) {
-  // 1. Try Vercel KV
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    try {
-      await kv.set(`obs:session:${token}`, data, { ex: SESSION_TTL_SECONDS });
-      return;
-    } catch (e) {
-      console.warn("Vercel KV set error:", e.message || e);
-    }
+  // 1. Try Redis
+  try {
+    await redis.set(`obs:session:${token}`, JSON.stringify(data), 'EX', SESSION_TTL_SECONDS);
+    return;
+  } catch (e) {
+    console.warn("Redis set error:", e.message || e);
   }
 
   // 2. Try KVdb.io
@@ -90,14 +88,12 @@ async function sessionSet(token, data) {
 }
 
 async function sessionDelete(token) {
-  // 1. Try Vercel KV
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    try {
-      await kv.del(`obs:session:${token}`);
-      return;
-    } catch (e) {
-      console.warn("Vercel KV delete error:", e.message || e);
-    }
+  // 1. Try Redis
+  try {
+    await redis.del(`obs:session:${token}`);
+    return;
+  } catch (e) {
+    console.warn("Redis delete error:", e.message || e);
   }
 
   // 2. Try KVdb.io

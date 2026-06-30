@@ -9,71 +9,36 @@
  * Response 400: { "status": "error", "message": "streamKey required" }
  */
 
-import { kv } from '@vercel/kv';
+import Redis from 'ioredis';
 import { sessionGet as memGet, sessionSet as memSet } from './_store.js';
 
 const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
-
-async function kvdbGet(token) {
-  try {
-    const res = await fetch(`https://kvdb.io/${BUCKET}/${token}`);
-    if (res.status === 200) {
-      return await res.json();
-    }
-  } catch (e) {
-    console.error("KVdb.io get error:", e.message || e);
-  }
-  return null;
-}
-
-async function kvdbSet(token, data) {
-  try {
-    const res = await fetch(`https://kvdb.io/${BUCKET}/${token}`, {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-    return res.ok;
-  } catch (e) {
-    console.error("KVdb.io set error:", e.message || e);
-  }
-  return false;
-}
+const REDIS_URL = process.env.REDIS_URL || 'redis://default:YplziO9FvjTQ0vjDz6qeuTO9uR1Cs8Aj@meridian-sharp-lush-20498.db.redis.io:18536';
+const redis = new Redis(REDIS_URL);
 
 async function sessionGet(token) {
-  // 1. Try Vercel KV
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    try {
-      const data = await kv.get(`obs:session:${token}`);
-      if (data) return data;
-    } catch (e) {
-      console.warn("Vercel KV get error:", e.message || e);
-    }
+  // 1. Try Redis
+  try {
+    const dataStr = await redis.get(`obs:session:${token}`);
+    if (dataStr) return JSON.parse(dataStr);
+  } catch (e) {
+    console.warn("Redis get error:", e.message || e);
   }
 
-  // 2. Try KVdb.io
-  const kvdbData = await kvdbGet(token);
-  if (kvdbData) return kvdbData;
-
-  // 3. Try In-memory fallback
+  // 2. Try In-memory fallback
   return memGet(token);
 }
 
 async function sessionSet(token, data) {
-  // 1. Try Vercel KV
-  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
-    try {
-      await kv.set(`obs:session:${token}`, data, { ex: 300 });
-      return;
-    } catch (e) {
-      console.warn("Vercel KV set error:", e.message || e);
-    }
+  // 1. Try Redis
+  try {
+    await redis.set(`obs:session:${token}`, JSON.stringify(data), 'EX', 300);
+    return;
+  } catch (e) {
+    console.warn("Redis set error:", e.message || e);
   }
 
-  // 2. Try KVdb.io
-  const kvdbOk = await kvdbSet(token, data);
-  if (kvdbOk) return;
-
-  // 3. Try In-memory fallback
+  // 2. Try In-memory fallback
   memSet(token, data);
 }
 
