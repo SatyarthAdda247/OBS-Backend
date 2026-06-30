@@ -11,9 +11,8 @@
 
 import { kv } from '@vercel/kv';
 import { sessionGet as memGet, sessionSet as memSet, sessionDelete as memDelete } from './_store.js';
-
 const SESSION_TTL_SECONDS = 300; // 5 minutes
-const BUCKET = 'obs_pairing_adda247_v1';
+const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
 
 async function kvdbGet(token) {
   try {
@@ -29,11 +28,11 @@ async function kvdbGet(token) {
 
 async function kvdbSet(token, data) {
   try {
-    await fetch(`https://kvdb.io/${BUCKET}/${token}`, {
+    const res = await fetch(`https://kvdb.io/${BUCKET}/${token}`, {
       method: 'POST',
       body: JSON.stringify(data)
     });
-    return true;
+    return res.ok;
   } catch (e) {
     console.error("KVdb.io set error:", e.message || e);
   }
