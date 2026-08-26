@@ -1,6 +1,9 @@
 {
   "version": 2,
   "functions": {
-    "api/*.js": { "maxDuration": 10 }
+    "api/*.js": {
+      "maxDuration": 10,
+      "includeFiles": "data/**"
+    }
   }
 }
