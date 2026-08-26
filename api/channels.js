@@ -1,4 +1,5 @@
-import { channels, toOverlay, resolveMediaUrl, isDriveFolder, applyCors } from '../lib/rules.js';
+'use strict';
+const { channels, toOverlay, resolveMediaUrl, isDriveFolder, applyCors } = require('../lib/rules');
 
 /**
  * GET /api/channels list every rule
@@ -18,7 +19,7 @@ function decorate(channel) {
   });
 }
 
-export default function handler(req, res) {
+module.exports = (req, res) => {
   applyCors(res);
   if (req.method === 'OPTIONS') {
     res.status(204).end();
@@ -59,4 +60,4 @@ export default function handler(req, res) {
 
   const all = channels.map(decorate);
   res.status(200).json({ success: true, data: all, count: all.length });
-}
+};

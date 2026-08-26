@@ -1,4 +1,5 @@
-import { resolveRule, applyCors, readJsonBody } from '../lib/rules.js';
+'use strict';
+const { resolveRule, applyCors, readJsonBody } = require('../lib/rules');
 
 /**
  * POST /api/resolve { streamKey?, title?, channelName? }
@@ -7,7 +8,7 @@ import { resolveRule, applyCors, readJsonBody } from '../lib/rules.js';
  * Pure lookup — no session state, nothing written.
  * Pairing (/api/session, /api/pair) is untouched.
  */
-export default function handler(req, res) {
+module.exports = (req, res) => {
   applyCors(res);
   if (req.method === 'OPTIONS') {
     res.status(204).end();
@@ -31,7 +32,7 @@ export default function handler(req, res) {
 
   const { matchedBy, channel, overlay, titleMatch } = resolveRule({ streamKey, channelName, title });
 
-  // Shows up in Vercel function logs
+  // Shows up in Vercel function logs — the only way to debug a mis-picked ticker later.
   console.log(
     `[resolve] matchedBy=${matchedBy} key="${streamKey}" title="${title}" -> "${overlay.channelName}" ` +
     `(${overlay.tickerOrientation}/${overlay.tickerPosition})`
@@ -46,4 +47,4 @@ export default function handler(req, res) {
       overlay: Object.assign({ streamKey }, overlay),
     },
   });
-}
+};

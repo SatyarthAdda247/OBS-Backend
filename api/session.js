@@ -1,16 +1,15 @@
+'use strict';
 /**
  * /api/session — OBS session management
  *
  * POST   /api/session              — OBS registers a new pairing session
  * GET    /api/session?token=<uuid> — OBS polls for pairing result
  * DELETE /api/session?token=<uuid> — OBS invalidates session on dismiss/timeout
- *
- * Storage: Vercel KV (Redis-backed, free tier).
- * Falls back to in-memory if KV env vars are not set (local dev only).
  */
 
-import Redis from 'ioredis';
-import { sessionGet as memGet, sessionSet as memSet, sessionDelete as memDelete } from './_store.js';
+const Redis = require('ioredis');
+const { sessionGet: memGet, sessionSet: memSet, sessionDelete: memDelete } = require('./_store.js');
+
 const SESSION_TTL_SECONDS = 300; // 5 minutes
 const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
 const REDIS_URL = process.env.REDIS_URL || 'redis://default:YplziO9FvjTQ0vjDz6qeuTO9uR1Cs8Aj@meridian-sharp-lush-20498.db.redis.io:18536';
@@ -55,7 +54,6 @@ async function kvdbDelete(token) {
 }
 
 async function sessionGet(token) {
-  // 1. Try Redis
   try {
     const dataStr = await redis.get(`obs:session:${token}`);
     if (dataStr) return JSON.parse(dataStr);
@@ -63,16 +61,13 @@ async function sessionGet(token) {
     console.warn("Redis get error:", e.message || e);
   }
 
-  // 2. Try KVdb.io
   const kvdbData = await kvdbGet(token);
   if (kvdbData) return kvdbData;
 
-  // 3. Try In-memory fallback
   return memGet(token);
 }
 
 async function sessionSet(token, data) {
-  // 1. Try Redis
   try {
     await redis.set(`obs:session:${token}`, JSON.stringify(data), 'EX', SESSION_TTL_SECONDS);
     return;
@@ -80,16 +75,13 @@ async function sessionSet(token, data) {
     console.warn("Redis set error:", e.message || e);
   }
 
-  // 2. Try KVdb.io
   const kvdbOk = await kvdbSet(token, data);
   if (kvdbOk) return;
 
-  // 3. Try In-memory fallback
   memSet(token, data);
 }
 
 async function sessionDelete(token) {
-  // 1. Try Redis
   try {
     await redis.del(`obs:session:${token}`);
     return;
@@ -97,15 +89,13 @@ async function sessionDelete(token) {
     console.warn("Redis delete error:", e.message || e);
   }
 
-  // 2. Try KVdb.io
   const kvdbOk = await kvdbDelete(token);
   if (kvdbOk) return;
 
-  // 3. Try In-memory fallback
   memDelete(token);
 }
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token');
@@ -178,4 +168,4 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ success: false, message: 'Method not allowed' });
-}
+};

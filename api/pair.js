@@ -1,50 +1,40 @@
+'use strict';
 /**
  * /api/pair?token=<uuid> — Mobile app sends stream key after scanning QR
  *
  * POST /api/pair?token=<uuid>
  * Body: { "streamKey": "live_xxx", "classId": "988036", "sceneCollection": "Lecture" }
- *
- * Response 200: { "status": "ok" }
- * Response 403: { "status": "error", "message": "invalid or expired token" }
- * Response 400: { "status": "error", "message": "streamKey required" }
  */
 
-import Redis from 'ioredis';
-import { sessionGet as memGet, sessionSet as memSet } from './_store.js';
-import { resolveRule } from '../lib/rules.js';
+const Redis = require('ioredis');
+const { sessionGet: memGet, sessionSet: memSet } = require('./_store.js');
+const { resolveRule } = require('../lib/rules');
 
-const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
 const REDIS_URL = process.env.REDIS_URL || 'redis://default:YplziO9FvjTQ0vjDz6qeuTO9uR1Cs8Aj@meridian-sharp-lush-20498.db.redis.io:18536';
 const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 1, enableOfflineQueue: false });
 redis.on('error', () => {});
 
 async function sessionGet(token) {
-  // 1. Try Redis
   try {
     const dataStr = await redis.get(`obs:session:${token}`);
     if (dataStr) return JSON.parse(dataStr);
   } catch (e) {
     console.warn("Redis get error:", e.message || e);
   }
-
-  // 2. Try In-memory fallback
   return memGet(token);
 }
 
 async function sessionSet(token, data) {
-  // 1. Try Redis
   try {
     await redis.set(`obs:session:${token}`, JSON.stringify(data), 'EX', 300);
     return;
   } catch (e) {
     console.warn("Redis set error:", e.message || e);
   }
-
-  // 2. Try In-memory fallback
   memSet(token, data);
 }
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -70,12 +60,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ status: 'error', message: 'streamKey required' });
   }
 
-  // Look up channel rule mapping (1st choice: match by streamKey, 2nd choice: match by channelName)
   const activeChannel = channelName || channelId || '';
   const resolved = resolveRule({ channelName: activeChannel, streamKey });
   const channelRule = resolved.overlay;
 
-  // Update session with pairing data and channel ticker/promo info — OBS will pick it up on next poll
   await sessionSet(token, {
     status: 'paired',
     streamKey,
@@ -93,4 +81,4 @@ export default async function handler(req, res) {
   console.log(`[obs-relay] Pairing received: token=${token} classId=${classId} channelName=${activeChannel}`);
 
   return res.status(200).json({ status: 'ok' });
-}
+};
