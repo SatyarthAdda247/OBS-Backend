@@ -12,24 +12,25 @@ const { sessionGet, sessionSet, sessionDelete } = require('./_store.js');
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, x-jwt-token, authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   // ── POST: OBS registers a new session ──────────────────────────────
   if (req.method === 'POST') {
     const { token, facultyId } = req.body || {};
-    if (!token) {
+    const sessionToken = token || req.query?.token;
+    if (!sessionToken) {
       return res.status(400).json({ success: false, message: 'token required' });
     }
 
-    await sessionSet(token, { status: 'pending', facultyId: facultyId || '', createdAt: Date.now() });
+    await sessionSet(sessionToken, { status: 'pending', facultyId: facultyId || '', createdAt: Date.now() });
 
-    const host = req.headers.host || 'obs-relay.vercel.app';
+    const host = req.headers.host || 'obs-backend-chi.vercel.app';
     const protocol = host.startsWith('localhost') ? 'http' : 'https';
-    const pairUrl = `${protocol}://${host}/api/pair?token=${token}`;
+    const pairUrl = `${protocol}://${host}/api/pair?token=${sessionToken}`;
 
-    console.log(`[obs-relay] Session registered: token=${token} facultyId=${facultyId}`);
+    console.log(`[obs-relay] Session registered: token=${sessionToken} facultyId=${facultyId}`);
 
     return res.status(200).json({
       success: true,
@@ -39,7 +40,7 @@ module.exports = async (req, res) => {
 
   // ── GET: OBS polls for pairing result ──────────────────────────────
   if (req.method === 'GET') {
-    const { token } = req.query;
+    const token = req.query?.token || req.body?.token;
     if (!token) {
       return res.status(400).json({ success: false, message: 'token required' });
     }
@@ -73,7 +74,7 @@ module.exports = async (req, res) => {
 
   // ── DELETE: OBS invalidates session ────────────────────────────────
   if (req.method === 'DELETE') {
-    const { token } = req.query;
+    const token = req.query?.token || req.body?.token;
     if (token) {
       await sessionDelete(token);
       console.log(`[obs-relay] Session invalidated: token=${token}`);

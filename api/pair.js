@@ -11,8 +11,8 @@ const { resolveRule } = require('../lib/rules');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, x-jwt-token, authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -20,13 +20,14 @@ module.exports = async (req, res) => {
     return res.status(405).json({ status: 'error', message: 'Method not allowed' });
   }
 
-  const { token } = req.query;
+  const token = req.query?.token || req.body?.token;
   if (!token) {
     return res.status(400).json({ status: 'error', message: 'token required' });
   }
 
   const session = await sessionGet(token);
   if (!session) {
+    console.warn(`[api/pair] Session not found or expired for token: ${token}`);
     return res.status(403).json({ status: 'error', message: 'invalid or expired token' });
   }
 
@@ -53,7 +54,7 @@ module.exports = async (req, res) => {
     pairedAt: Date.now(),
   });
 
-  console.log(`[obs-relay] Pairing received: token=${token} classId=${classId} channelName=${activeChannel}`);
+  console.log(`[obs-relay] Pairing successful: token=${token} classId=${classId} streamKey=${streamKey}`);
 
   return res.status(200).json({ status: 'ok' });
 };
