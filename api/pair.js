@@ -10,9 +10,36 @@ const Redis = require('ioredis');
 const { sessionGet: memGet, sessionSet: memSet } = require('./_store.js');
 const { resolveRule } = require('../lib/rules');
 
+const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
 const REDIS_URL = process.env.REDIS_URL || 'redis://default:YplziO9FvjTQ0vjDz6qeuTO9uR1Cs8Aj@meridian-sharp-lush-20498.db.redis.io:18536';
 const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 1, enableOfflineQueue: false });
 redis.on('error', () => {});
+
+async function kvdbGet(token) {
+  try {
+    const res = await fetch(`https://kvdb.io/${BUCKET}/${token}`);
+    if (res.status === 200) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.error("KVdb.io get error:", e.message || e);
+  }
+  return null;
+}
+
+async function kvdbSet(token, data) {
+  try {
+    const res = await fetch(`https://kvdb.io/${BUCKET}/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return res.ok;
+  } catch (e) {
+    console.error("KVdb.io set error:", e.message || e);
+  }
+  return false;
+}
 
 async function sessionGet(token) {
   try {
@@ -21,6 +48,10 @@ async function sessionGet(token) {
   } catch (e) {
     console.warn("Redis get error:", e.message || e);
   }
+
+  const kvdbData = await kvdbGet(token);
+  if (kvdbData) return kvdbData;
+
   return memGet(token);
 }
 
@@ -31,6 +62,10 @@ async function sessionSet(token, data) {
   } catch (e) {
     console.warn("Redis set error:", e.message || e);
   }
+
+  const kvdbOk = await kvdbSet(token, data);
+  if (kvdbOk) return;
+
   memSet(token, data);
 }
 
