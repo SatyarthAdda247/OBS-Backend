@@ -1,94 +1,80 @@
 'use strict';
 
 /**
- * Distributed Session Store for Vercel Serverless & Local Dev.
- * Uses restful-api.dev REST API as global distributed backup store
- * so all serverless function containers instantly share session state.
+ * Shared Session Store with Vercel KV / Upstash Redis support
  */
 
 if (!globalThis.__obsSessions) {
   globalThis.__obsSessions = new Map();
 }
-if (!globalThis.__obsTokenIds) {
-  globalThis.__obsTokenIds = new Map();
-}
 
 const sessions = globalThis.__obsSessions;
-const tokenIds = globalThis.__obsTokenIds;
 
-async function remoteSet(token, data) {
-  try {
-    const existingId = tokenIds.get(token);
-    if (existingId) {
-      // Update existing object
-      await fetch(`https://api.restful-api.dev/objects/${existingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: `obs_${token}`, data })
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+async function kvSet(token, data) {
+  if (KV_URL && KV_TOKEN) {
+    try {
+      await fetch(`${KV_URL}/set/obs:session:${token}/${encodeURIComponent(JSON.stringify(data))}/EX/300`, {
+        headers: { Authorization: `Bearer ${KV_TOKEN}` }
       });
-      return;
+      return true;
+    } catch (e) {
+      console.warn("[_store] Vercel KV set error:", e.message || e);
     }
-
-    // Create new object
-    const res = await fetch('https://api.restful-api.dev/objects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: `obs_${token}`, data })
-    });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.id) {
-        tokenIds.set(token, json.id);
-      }
-    }
-  } catch (e) {
-    console.warn("[_store] Remote set warning:", e.message || e);
   }
+  return false;
 }
 
-async function remoteGet(token) {
-  try {
-    const id = tokenIds.get(token);
-    if (id) {
-      const res = await fetch(`https://api.restful-api.dev/objects/${id}`);
+async function kvGet(token) {
+  if (KV_URL && KV_TOKEN) {
+    try {
+      const res = await fetch(`${KV_URL}/get/obs:session:${token}`, {
+        headers: { Authorization: `Bearer ${KV_TOKEN}` }
+      });
       if (res.ok) {
         const json = await res.json();
-        return json.data || null;
+        if (json.result) {
+          return typeof json.result === 'string' ? JSON.parse(json.result) : json.result;
+        }
       }
+    } catch (e) {
+      console.warn("[_store] Vercel KV get error:", e.message || e);
     }
-  } catch (e) {
-    console.warn("[_store] Remote get warning:", e.message || e);
   }
   return null;
 }
 
-function sessionSet(token, data) {
+async function kvDelete(token) {
+  if (KV_URL && KV_TOKEN) {
+    try {
+      await fetch(`${KV_URL}/del/obs:session:${token}`, {
+        headers: { Authorization: `Bearer ${KV_TOKEN}` }
+      });
+      return true;
+    } catch (e) {
+      console.warn("[_store] Vercel KV delete error:", e.message || e);
+    }
+  }
+  return false;
+}
+
+async function sessionSet(token, data) {
   sessions.set(token, data);
-  // Async sync to remote store
-  remoteSet(token, data).catch(() => {});
-  // Auto-expire local memory after 5 mins
-  setTimeout(() => {
-    sessions.delete(token);
-    tokenIds.delete(token);
-  }, 5 * 60 * 1000);
+  await kvSet(token, data);
+  setTimeout(() => sessions.delete(token), 5 * 60 * 1000);
 }
 
 async function sessionGet(token) {
-  const local = sessions.get(token);
-  if (local) return local;
-
-  const remote = await remoteGet(token);
-  if (remote) {
-    sessions.set(token, remote);
-    return remote;
-  }
-
-  return null;
+  const kvData = await kvGet(token);
+  if (kvData) return kvData;
+  return sessions.get(token) ?? null;
 }
 
-function sessionDelete(token) {
+async function sessionDelete(token) {
   sessions.delete(token);
-  tokenIds.delete(token);
+  await kvDelete(token);
 }
 
 module.exports = {
