@@ -6,68 +6,8 @@
  * Body: { "streamKey": "live_xxx", "classId": "988036", "sceneCollection": "Lecture" }
  */
 
-const Redis = require('ioredis');
-const { sessionGet: memGet, sessionSet: memSet } = require('./_store.js');
+const { sessionGet, sessionSet } = require('./_store.js');
 const { resolveRule } = require('../lib/rules');
-
-const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
-const REDIS_URL = process.env.REDIS_URL || 'redis://default:YplziO9FvjTQ0vjDz6qeuTO9uR1Cs8Aj@meridian-sharp-lush-20498.db.redis.io:18536';
-const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 1, enableOfflineQueue: false });
-redis.on('error', () => {});
-
-async function kvdbGet(token) {
-  try {
-    const res = await fetch(`https://kvdb.io/${BUCKET}/${token}`);
-    if (res.status === 200) {
-      return await res.json();
-    }
-  } catch (e) {
-    console.error("KVdb.io get error:", e.message || e);
-  }
-  return null;
-}
-
-async function kvdbSet(token, data) {
-  try {
-    const res = await fetch(`https://kvdb.io/${BUCKET}/${token}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return res.ok;
-  } catch (e) {
-    console.error("KVdb.io set error:", e.message || e);
-  }
-  return false;
-}
-
-async function sessionGet(token) {
-  try {
-    const dataStr = await redis.get(`obs:session:${token}`);
-    if (dataStr) return JSON.parse(dataStr);
-  } catch (e) {
-    console.warn("Redis get error:", e.message || e);
-  }
-
-  const kvdbData = await kvdbGet(token);
-  if (kvdbData) return kvdbData;
-
-  return memGet(token);
-}
-
-async function sessionSet(token, data) {
-  try {
-    await redis.set(`obs:session:${token}`, JSON.stringify(data), 'EX', 300);
-    return;
-  } catch (e) {
-    console.warn("Redis set error:", e.message || e);
-  }
-
-  const kvdbOk = await kvdbSet(token, data);
-  if (kvdbOk) return;
-
-  memSet(token, data);
-}
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
