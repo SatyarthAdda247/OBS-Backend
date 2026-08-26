@@ -561,8 +561,11 @@
         const res = await fetch('/api/channels');
         const data = await res.json();
         if (data.success) {
-          channelsData = data.channels || [];
+          channelsData = data.data || data.channels || [];
           renderTable();
+          if (channelsData.length > 0) {
+            selectPreview(channelsData[0]);
+          }
         }
       } catch (e) {
         console.error("Failed to load channels:", e);
