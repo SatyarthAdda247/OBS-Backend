@@ -14,7 +14,8 @@ import { sessionGet as memGet, sessionSet as memSet, sessionDelete as memDelete 
 const SESSION_TTL_SECONDS = 300; // 5 minutes
 const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
 const REDIS_URL = process.env.REDIS_URL || 'redis://default:YplziO9FvjTQ0vjDz6qeuTO9uR1Cs8Aj@meridian-sharp-lush-20498.db.redis.io:18536';
-const redis = new Redis(REDIS_URL);
+const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 1, enableOfflineQueue: false });
+redis.on('error', () => {});
 
 async function kvdbGet(token) {
   try {
@@ -148,7 +149,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, data: null }); // still waiting
     }
 
-    // Paired — return stream key data to OBS
+    // Paired — return stream key data and channel overlay settings to OBS
     console.log(`[obs-relay] Session polled and paired: token=${token}`);
     return res.status(200).json({
       success: true,
@@ -156,6 +157,12 @@ export default async function handler(req, res) {
         streamKey: session.streamKey,
         classId: session.classId || '',
         sceneCollection: session.sceneCollection || '',
+        channelName: session.channelName || '',
+        tickerUrl: session.tickerUrl || '',
+        tickerText: session.tickerText || '',
+        tickerOrientation: session.tickerOrientation || 'horizontal',
+        tickerPosition: session.tickerPosition || 'bottom',
+        promoUrl: session.promoUrl || '',
       },
     });
   }

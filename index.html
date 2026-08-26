@@ -3,16 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Adda247 OBS Relay Service</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <title>Adda247 OBS Relay & Ticker Management Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-color: #0f172a;
-      --card-bg: rgba(30, 41, 59, 0.7);
+      --bg-color: #0b0f19;
+      --card-bg: rgba(22, 30, 46, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --accent: #38bdf8;
-      --glow: rgba(56, 189, 248, 0.4);
+      --accent-hover: #0284c7;
+      --success: #10b981;
+      --danger: #ef4444;
+      --glow: rgba(56, 189, 248, 0.25);
     }
     
     * {
@@ -25,151 +29,720 @@
       font-family: 'Inter', sans-serif;
       background-color: var(--bg-color);
       color: var(--text-main);
-      display: flex;
-      align-items: center;
-      justify-content: center;
       min-height: 100vh;
-      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1.5rem;
       position: relative;
     }
 
     /* Animated Background Gradient */
     .bg-animation {
-      position: absolute;
-      width: 150vw;
-      height: 150vh;
-      background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.15), transparent 60%),
-                  radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.15), transparent 50%);
-      animation: pulse 15s ease-in-out infinite alternate;
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.1), transparent 50%),
+                  radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1), transparent 50%);
+      pointer-events: none;
       z-index: 0;
     }
 
-    @keyframes pulse {
-      0% { transform: scale(1) translate(0, 0); }
-      100% { transform: scale(1.1) translate(-2%, 5%); }
-    }
-
-    .container {
+    .main-layout {
       position: relative;
       z-index: 1;
+      width: 100%;
+      max-width: 1280px;
+    }
+
+    /* Header Bar */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       background: var(--card-bg);
       backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 24px;
-      padding: 3rem 4rem;
-      text-align: center;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px var(--glow);
-      animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      opacity: 0;
-      transform: translateY(30px);
+      border: 1px solid var(--card-border);
+      padding: 1.25rem 2rem;
+      border-radius: 20px;
+      margin-bottom: 2rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     }
 
-    @keyframes slideUp {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
 
-    .status-ring {
-      position: relative;
-      width: 80px;
-      height: 80px;
-      margin: 0 auto 2rem;
-      border-radius: 50%;
-      background: rgba(16, 185, 129, 0.1);
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #ef4444, #f97316);
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
     }
 
-    .status-ring::before {
-      content: '';
-      position: absolute;
-      inset: -5px;
-      border-radius: 50%;
-      background: conic-gradient(from 0deg, transparent, #10b981, transparent);
-      animation: spin 3s linear infinite;
+    .brand-title h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #ffffff, #cbd5e1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
-    .status-ring::after {
-      content: '';
-      position: absolute;
-      inset: 2px;
-      background: var(--bg-color);
-      border-radius: 50%;
+    .brand-title p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      color: var(--success);
+      font-size: 0.85rem;
+      font-weight: 600;
     }
 
     .status-dot {
-      position: relative;
-      z-index: 2;
-      width: 20px;
-      height: 20px;
-      background: #10b981;
+      width: 10px;
+      height: 10px;
+      background: var(--success);
       border-radius: 50%;
-      box-shadow: 0 0 20px #10b981, 0 0 40px #10b981;
-      animation: breathe 2s ease-in-out infinite alternate;
+      box-shadow: 0 0 10px var(--success);
+      animation: pulse 2s infinite alternate;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    @keyframes breathe {
-      0% { transform: scale(0.9); opacity: 0.8; }
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 0.7; }
       100% { transform: scale(1.2); opacity: 1; }
     }
 
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 800;
-      margin-bottom: 0.5rem;
-      background: linear-gradient(to right, #ffffff, #94a3b8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.02em;
+    /* Actions Bar */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      gap: 1rem;
+      flex-wrap: wrap;
     }
 
-    p {
-      font-size: 1.1rem;
-      color: var(--text-muted);
-      max-width: 350px;
-      margin: 0 auto;
-      line-height: 1.5;
+    .search-box {
+      position: relative;
+      flex: 1;
+      max-width: 380px;
     }
 
-    .badge {
-      display: inline-block;
-      margin-top: 2rem;
-      padding: 0.5rem 1rem;
-      border-radius: 9999px;
-      background: rgba(56, 189, 248, 0.1);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      color: var(--accent);
+    .search-box input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      color: var(--text-main);
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 15px var(--glow);
+    }
+
+    .search-box svg {
+      position: absolute;
+      left: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      fill: var(--text-muted);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.25rem;
+      border-radius: 12px;
       font-size: 0.875rem;
       font-weight: 600;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      transition: all 0.3s ease;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
     }
 
-    .badge:hover {
-      background: rgba(56, 189, 248, 0.2);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #0284c7);
+      color: #fff;
+      box-shadow: 0 4px 15px var(--glow);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Live Preview Bar */
+    .ticker-preview-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    .preview-header {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .preview-marquee {
+      background: #0f172a;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      overflow: hidden;
+      white-space: nowrap;
+      position: relative;
+      color: #fef08a;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .preview-marquee span {
+      display: inline-block;
+      padding-left: 100%;
+      animation: marquee 18s linear infinite;
+    }
+
+    @keyframes marquee {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(-100%, 0); }
+    }
+
+    /* Table Container */
+    .table-container {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(15, 23, 42, 0.8);
+      padding: 1rem 1.25rem;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.9rem;
+      vertical-align: middle;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .channel-name {
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .url-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.825rem;
+      max-width: 200px;
+      display: inline-block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .url-link:hover {
+      text-decoration: underline;
+    }
+
+    .badge-status {
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .badge-active {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-inactive {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .action-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.4rem;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      color: #fff;
+      background: rgba(255,255,255,0.1);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: #111827;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 520px;
+      padding: 2rem;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-header h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 0.75rem;
+      color: #fff;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1.75rem;
     }
   </style>
 </head>
 <body>
   <div class="bg-animation"></div>
-  <div class="container">
-    <div class="status-ring">
-      <div class="status-dot"></div>
+
+  <div class="main-layout">
+    <header>
+      <div class="brand">
+        <div class="brand-logo">A</div>
+        <div class="brand-title">
+          <h1>Adda247 OBS Ticker Manager</h1>
+          <p>Channel-wise automated ticker & promo overlay backend</p>
+        </div>
+      </div>
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        Relay Active & Redis Synced
+      </div>
+    </header>
+
+    <!-- Ticker Marquee Preview -->
+    <div class="ticker-preview-card">
+      <div class="preview-header">
+        <span>Live Selected Ticker Preview</span>
+        <span id="previewChannelName">REGULATORY BODIES</span>
+      </div>
+      <div class="preview-marquee">
+        <span id="previewText">Your Success in Regulatory Bodies & SO Exams Begins Here. Connect with Our Counselling Team: 9240231036</span>
+      </div>
     </div>
-    <h1>Service Active</h1>
-    <p>The OBS Relay Backend is online and actively processing pairing requests.</p>
-    <div class="badge">Vercel Serverless &middot; Redis Connected</div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input type="text" id="searchInput" placeholder="Search channels, tickers, promos..." oninput="renderTable()">
+      </div>
+
+      <div class="btn-group">
+        <label class="btn btn-secondary">
+          📁 Import Sheet CSV
+          <input type="file" id="csvFileInput" accept=".csv" style="display:none;" onchange="handleCSVUpload(event)">
+        </label>
+        <button class="btn btn-primary" onclick="openAddModal()">+ Add Channel Rule</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Channel Name</th>
+            <th>Duration</th>
+            <th>Ticker Text / Link</th>
+            <th>Promo Link</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="channelsTableBody">
+          <!-- Populated by JavaScript -->
+        </tbody>
+      </table>
+    </div>
   </div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="ruleModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add Channel Rule</h3>
+        <button class="action-btn" onclick="closeModal()">✕</button>
+      </div>
+      <form id="ruleForm" onsubmit="handleFormSubmit(event)">
+        <input type="hidden" id="ruleId">
+        <div class="form-group">
+          <label>Channel Name</label>
+          <input type="text" id="inputChannelName" placeholder="e.g. SSC CGL, BANK & BANKERS">
+        </div>
+        <div class="form-group">
+          <label>Mapped Stream Key (Optional - Direct Stream Key Override)</label>
+          <input type="text" id="inputStreamKey" placeholder="e.g. live_xxxxxxxxxxxxxxxx">
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <div class="form-group" style="flex:1;">
+            <label>Ticker Orientation</label>
+            <select id="inputTickerOrientation">
+              <option value="horizontal">Horizontal (Bottom Marquee)</option>
+              <option value="vertical">Vertical (Sidebar Banner)</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>Ticker Position</label>
+            <select id="inputTickerPosition">
+              <option value="bottom">Bottom Overlay</option>
+              <option value="right">Right Sidebar</option>
+              <option value="left">Left Sidebar</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <div class="form-group" style="flex:1;">
+            <label>Start Date</label>
+            <input type="text" id="inputStartDate" placeholder="e.g. 12 August, Daily">
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>End Date</label>
+            <input type="text" id="inputEndDate" placeholder="e.g. 16 August, Daily">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Ticker Text (Display Marquee)</label>
+          <input type="text" id="inputTickerText" placeholder="Enter marquee text for overlay">
+        </div>
+        <div class="form-group">
+          <label>Ticker Graphic / Link (AWS S3 / Drive / Image)</label>
+          <input type="text" id="inputTickerUrl" placeholder="https://my-bucket.s3.amazonaws.com/...">
+        </div>
+        <div class="form-group">
+          <label>Promo Video Link (AWS S3 MP4 URL)</label>
+          <input type="text" id="inputPromoUrl" placeholder="https://my-bucket.s3.amazonaws.com/...">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Rule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let channelsData = [];
+
+    async function loadChannels() {
+      try {
+        const res = await fetch('/api/channels');
+        const data = await res.json();
+        if (data.success) {
+          channelsData = data.channels || [];
+          renderTable();
+        }
+      } catch (e) {
+        console.error("Failed to load channels:", e);
+      }
+    }
+
+    function renderTable() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const tbody = document.getElementById('channelsTableBody');
+      tbody.innerHTML = '';
+
+      const filtered = channelsData.filter(c => 
+        (c.channelName && c.channelName.toLowerCase().includes(search)) ||
+        (c.streamKey && c.streamKey.toLowerCase().includes(search)) ||
+        (c.tickerText && c.tickerText.toLowerCase().includes(search)) ||
+        (c.tickerUrl && c.tickerUrl.toLowerCase().includes(search))
+      );
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">No channel rules found</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.onclick = () => selectPreview(c);
+        const isVert = c.tickerOrientation === 'vertical';
+        tr.innerHTML = `
+          <td>
+            <div class="channel-name">${escapeHtml(c.channelName || 'Unassigned')}</div>
+            ${c.streamKey ? `<div style="font-size:0.75rem; color:var(--accent); font-family:monospace;">🔑 ${escapeHtml(c.streamKey)}</div>` : ''}
+          </td>
+          <td style="color:var(--text-muted); font-size:0.85rem;">
+            ${escapeHtml(c.startDate || '—')} to ${escapeHtml(c.endDate || '—')}
+          </td>
+          <td>
+            <span class="badge-status" style="background:rgba(56,189,248,0.1); color:var(--accent); margin-bottom:4px;">
+              ${isVert ? '📐 VERTICAL SIDEBAR' : '↔️ HORIZONTAL BOTTOM'}
+            </span>
+            ${c.tickerText ? `<div style="font-weight:600; color:#fef08a;">${escapeHtml(c.tickerText)}</div>` : ''}
+            ${c.tickerUrl ? `<a href="${escapeHtml(c.tickerUrl)}" target="_blank" class="url-link">🔗 Ticker Asset</a>` : ''}
+          </td>
+          <td>
+            ${c.promoUrl ? `<a href="${escapeHtml(c.promoUrl)}" target="_blank" class="url-link">🎥 Promo Asset</a>` : '—'}
+          </td>
+          <td>
+            <span class="badge-status ${c.status === 'active' ? 'badge-active' : 'badge-inactive'}">
+              ${c.status.toUpperCase()}
+            </span>
+          </td>
+          <td style="text-align: right;">
+            <button class="action-btn" onclick="event.stopPropagation(); editRule('${c.id}')">✏️ Edit</button>
+            <button class="action-btn" onclick="event.stopPropagation(); deleteRule('${c.id}')" style="color:var(--danger)">🗑️</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function selectPreview(channel) {
+      document.getElementById('previewChannelName').innerText = channel.channelName;
+      document.getElementById('previewText').innerText = channel.tickerText || channel.tickerUrl || 'No ticker content set';
+    }
+
+    function openAddModal() {
+      document.getElementById('modalTitle').innerText = 'Add Channel Rule';
+      document.getElementById('ruleId').value = '';
+      document.getElementById('ruleForm').reset();
+      document.getElementById('ruleModal').classList.add('active');
+    }
+
+    function editRule(id) {
+      const c = channelsData.find(item => item.id === id);
+      if (!c) return;
+      document.getElementById('modalTitle').innerText = 'Edit Channel Rule';
+      document.getElementById('ruleId').value = c.id;
+      document.getElementById('inputChannelName').value = c.channelName || '';
+      document.getElementById('inputStreamKey').value = c.streamKey || '';
+      document.getElementById('inputTickerOrientation').value = c.tickerOrientation || 'horizontal';
+      document.getElementById('inputTickerPosition').value = c.tickerPosition || 'bottom';
+      document.getElementById('inputStartDate').value = c.startDate || '';
+      document.getElementById('inputEndDate').value = c.endDate || '';
+      document.getElementById('inputTickerText').value = c.tickerText || '';
+      document.getElementById('inputTickerUrl').value = c.tickerUrl || '';
+      document.getElementById('inputPromoUrl').value = c.promoUrl || '';
+      document.getElementById('ruleModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('ruleModal').classList.remove('active');
+    }
+
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const payload = {
+        id: document.getElementById('ruleId').value,
+        channelName: document.getElementById('inputChannelName').value,
+        streamKey: document.getElementById('inputStreamKey').value,
+        tickerOrientation: document.getElementById('inputTickerOrientation').value,
+        tickerPosition: document.getElementById('inputTickerPosition').value,
+        startDate: document.getElementById('inputStartDate').value,
+        endDate: document.getElementById('inputEndDate').value,
+        tickerText: document.getElementById('inputTickerText').value,
+        tickerUrl: document.getElementById('inputTickerUrl').value,
+        promoUrl: document.getElementById('inputPromoUrl').value,
+        status: 'active'
+      };
+
+      const res = await fetch('/api/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        channelsData = data.channels;
+        renderTable();
+        closeModal();
+      }
+    }
+
+    async function deleteRule(id) {
+      if (!confirm('Are you sure you want to delete this channel rule?')) return;
+      const res = await fetch(`/api/channels?id=${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        channelsData = data.channels;
+        renderTable();
+      }
+    }
+
+    function handleCSVUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        const text = e.target.result;
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const parsedChannels = [];
+
+        lines.slice(1).forEach((line, idx) => {
+          const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+          if (cols[0]) {
+            parsedChannels.push({
+              id: String(Date.now() + idx),
+              channelName: cols[0],
+              startDate: cols[1] || '',
+              endDate: cols[2] || '',
+              tickerUrl: cols[3] || '',
+              tickerText: cols[0] + ' Live Special Offer',
+              promoUrl: cols[4] || '',
+              status: 'active',
+              remark: cols[5] || ''
+            });
+          }
+        });
+
+        if (parsedChannels.length > 0) {
+          const res = await fetch('/api/channels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channels: parsedChannels })
+          });
+          const data = await res.json();
+          if (data.success) {
+            channelsData = data.channels;
+            renderTable();
+            alert(`Successfully imported ${parsedChannels.length} channel rules!`);
+          }
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    loadChannels();
+  </script>
 </body>
 </html>

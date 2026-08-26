@@ -11,10 +11,12 @@
 
 import Redis from 'ioredis';
 import { sessionGet as memGet, sessionSet as memSet } from './_store.js';
+import { findMatchingChannelRule } from './channels.js';
 
 const BUCKET = 'KYmSZ3Yy8SEusEDofqzWy6';
 const REDIS_URL = process.env.REDIS_URL || 'redis://default:YplziO9FvjTQ0vjDz6qeuTO9uR1Cs8Aj@meridian-sharp-lush-20498.db.redis.io:18536';
-const redis = new Redis(REDIS_URL);
+const redis = new Redis(REDIS_URL, { maxRetriesPerRequest: 1, enableOfflineQueue: false });
+redis.on('error', () => {});
 
 async function sessionGet(token) {
   // 1. Try Redis
@@ -63,21 +65,31 @@ export default async function handler(req, res) {
     return res.status(403).json({ status: 'error', message: 'invalid or expired token' });
   }
 
-  const { streamKey, classId, sceneCollection } = req.body || {};
+  const { streamKey, classId, sceneCollection, channelName, channelId } = req.body || {};
   if (!streamKey) {
     return res.status(400).json({ status: 'error', message: 'streamKey required' });
   }
 
-  // Update session with pairing data — OBS will pick it up on next poll
+  // Look up channel rule mapping (1st choice: match by streamKey, 2nd choice: match by channelName)
+  const activeChannel = channelName || channelId || '';
+  const channelRule = findMatchingChannelRule({ channelName: activeChannel, streamKey });
+
+  // Update session with pairing data and channel ticker/promo info — OBS will pick it up on next poll
   await sessionSet(token, {
     status: 'paired',
     streamKey,
     classId: classId || '',
     sceneCollection: sceneCollection || '',
+    channelName: activeChannel,
+    tickerUrl: channelRule?.tickerUrl || '',
+    tickerText: channelRule?.tickerText || '',
+    tickerOrientation: channelRule?.tickerOrientation || 'horizontal',
+    tickerPosition: channelRule?.tickerPosition || (channelRule?.tickerOrientation === 'vertical' ? 'right' : 'bottom'),
+    promoUrl: channelRule?.promoUrl || '',
     pairedAt: Date.now(),
   });
 
-  console.log(`[obs-relay] Pairing received: token=${token} classId=${classId}`);
+  console.log(`[obs-relay] Pairing received: token=${token} classId=${classId} channelName=${activeChannel}`);
 
   return res.status(200).json({ status: 'ok' });
 }
